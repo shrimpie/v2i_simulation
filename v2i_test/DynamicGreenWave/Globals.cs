@@ -39,6 +39,8 @@ namespace DynamicGreenWave
         static public double SAT_THRESHOLD = 0.5;
 
         static public int FIXED_CYCLE = 60;
+        static public int PLATOON_SIZE_MIN = 5;
+        static public int PLATOON_HDWAY_DISTANCE = 30;
 
         static public int EWB_THRU = 0;
         static public int NSB_LEFT = 1;

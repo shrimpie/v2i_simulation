@@ -51,7 +51,7 @@ namespace DynamicGreenWave
             for (int i = 0; i < this.inter_num; i++)
             {
                 SC[i] = scContain.get_ItemByKey(i + 1);
-                this.inters[i] = new Intersection(i + 1, this.dc, this.stpln_det_config[i], this.overflow_det_config[i], 
+                this.inters[i] = new Intersection(this.vissim, i + 1, this.dc, this.stpln_det_config[i], this.overflow_det_config[i], 
                                                    SC[i], this.inter_graph, real_key);
             }
 
@@ -94,9 +94,14 @@ namespace DynamicGreenWave
             foreach (var inter in this.inters) inter.clear_signals();
         }
 
+        public void update_platoon()
+        {
+            foreach (var inter in this.inters) inter.update_link_platoons();
+        }
+
         public void test_control_link_veh_speed(int inter_id, double target_speed)
         {
-            this.inters[inter_id-1].control_link_veh_speed(this.vissim, target_speed);
+            this.inters[inter_id-1].test_control_link_veh_speed(this.vissim, target_speed);
         }
 
         /*
