@@ -54,12 +54,12 @@ namespace DynamicGreenWave
         private int[] min_green_counter = new int[Globals.COMBI_PHASE_SUM];
         static private int[] MIN_GREEN  = null;
 
-        class Vehicle
+        class VehicleMine
         {
             double position;
             double speed;
 
-            public Vehicle(double p, double s)
+            public VehicleMine(double p, double s)
             {
                 position = p;
                 speed = s;
@@ -93,7 +93,7 @@ namespace DynamicGreenWave
                 this.speed = s;
             }
         }
-        private List<LinkedList<Vehicle>> link_veh = new List<LinkedList<Vehicle>>();
+        private List<LinkedList<VehicleMine>> link_veh = new List<LinkedList<VehicleMine>>();
         
         // This List of HashSet of int is to record vehicle id of each link of the intersection.
         private List<HashSet<int>> inter_link_veh_set = new List<HashSet<int>>();
@@ -226,7 +226,7 @@ namespace DynamicGreenWave
         {
             for (int i = 0; i < Globals.THRU_LINK_NUM; i++)
             {
-                this.link_veh.Add(new LinkedList<Vehicle>());
+                this.link_veh.Add(new LinkedList<VehicleMine>());
                 this.inter_link_veh_set.Add(new HashSet<int>());
             }
         }
@@ -327,7 +327,9 @@ namespace DynamicGreenWave
                         {
                             this.stpln_pass_veh_counter[i]++;
                             this.stpln_det_vehno[i][j] = veh_id;
-                            this.update_link_veh_from_stopline_det(i);
+                            //this.update_link_veh_from_stopline_det(i);
+
+                            this.update_link_veh_set_from_stopline_det(i, veh_id);
                         }
                     }
                 }
@@ -362,18 +364,17 @@ namespace DynamicGreenWave
                     {
                         int veh_id = this.overflow_det[i][j].get_AttValue("VEHNO");
 
-
-
-
                         if (veh_id != 0 && !this.parallel_detector_seen_this_car(veh_id, this.overflow_det_vehno[i]))
                         {
                             this.overflow_pass_veh_counter[i]++;
                             this.overflow_det_vehno[i][j] = veh_id;
-                            double instant_speed = this.overflow_det[i][j].get_AttValue("VEHSPEED");
-                            double veh_speed = Math.Round(instant_speed / 3.6, 2);
+                            //double instant_speed = this.overflow_det[i][j].get_AttValue("VEHSPEED");
+                            //double veh_speed = Math.Round(instant_speed / 3.6, 2);
 
-                            this.update_link_speed(i, veh_speed);
-                            this.update_link_veh_from_overflow_det(i, j, veh_speed);
+                            //this.update_link_speed(i, veh_speed);
+                            //this.update_link_veh_from_overflow_det(i, j, veh_speed);
+
+                            this.update_link_veh_set_from_overflow_det(i, veh_id);
                         }
                     }
                 }
@@ -418,8 +419,8 @@ namespace DynamicGreenWave
             this.update_stpln_counter();
             this.update_overflow_counter_and_link_speed();
 
-            foreach (var p in this._phases_all)
-                this.record_each_trap((int)p - 1);
+            //foreach (var p in this._phases_all)
+                //this.record_each_trap((int)p - 1);
         }
 
         private bool direction_is_thru(int dir)
@@ -435,6 +436,23 @@ namespace DynamicGreenWave
             return false;
         }
 
+        // 
+        private void update_link_veh_set_from_overflow_det(int ph, int veh_id)
+        {
+            // For vehicles newly come in the links, add them to the set.
+            if (this.direction_is_thru(ph))
+            {
+                int index = ph < 2 ? ph : ph - 2;
+                this.inter_link_veh_set[index].Add(veh_id);
+            }
+            // For those turn into left-turn bay, remove them.
+            else if (this.direction_is_left(ph))
+            {
+                int index = ph > 3 ? ph - 4 : ph - 2;
+                this.inter_link_veh_set[index].Remove(veh_id);
+            }
+        }
+
         private void update_link_veh_from_overflow_det(int ph, int which_det, double speed)
         {
             // Link start, vehicle entry, add to list
@@ -444,7 +462,7 @@ namespace DynamicGreenWave
                 double pos = Math.Round(this.overflow_det[ph][which_det].get_AttValue("POS"), 2);
                 double link_length = Math.Round(this.overflow_det[ph][which_det].Lane.Link.get_AttValue("LENGTH2D"), 2);
                 pos = link_length - pos;
-                Vehicle temp_veh = new Vehicle(pos, speed);
+                VehicleMine temp_veh = new VehicleMine(pos, speed);
                 int index = ph < 2 ? ph : ph - 2;
                 this.link_veh[index].AddLast(temp_veh);
                 
@@ -461,7 +479,7 @@ namespace DynamicGreenWave
                 int index = ph > 3 ? ph - 4 : ph - 2;
 
                 // Remove the vehicle from least according to its position
-                Vehicle target = null;
+                VehicleMine target = null;
                 double min = Globals.MAX_LINK_LENGH;
                 foreach (var veh in this.link_veh[index])
                 {
@@ -474,6 +492,31 @@ namespace DynamicGreenWave
                 }
                 if(target != null)
                     this.link_veh[index].Remove(target);
+            }
+        }
+
+        private void update_link_veh_set_from_stopline_det(int ph, int veh_id)
+        {
+            switch (ph + 1)
+            {
+                case Globals.EB_THRU:
+                case Globals.SB_RIGHT:
+                    this.inter_link_veh_set[0].Remove(veh_id);
+                    break;
+                case Globals.WB_THRU:
+                case Globals.NB_RIGHT:
+                    this.inter_link_veh_set[1].Remove(veh_id);
+                    break;
+                case Globals.NB_THRU:
+                case Globals.EB_RIGHT:
+                    this.inter_link_veh_set[2].Remove(veh_id);
+                    break;
+                case Globals.SB_THRU:
+                case Globals.WB_RIGHT:
+                    this.inter_link_veh_set[3].Remove(veh_id);
+                    break;
+                default:
+                    break;
             }
         }
 
@@ -547,6 +590,20 @@ namespace DynamicGreenWave
             for (int i = 0; i < Globals.COMBI_PHASE_SUM; i++)
                 this.lighten_normal_phases(Globals.FIXED_PHASES[this.phase_index]);
         }
+
+        public void control_link_veh_speed(Vissim vis, double target_speed)
+        {
+            for (int i = 0; i < this.inter_link_veh_set.Count; i++)
+            {
+                foreach (var veh_id in this.inter_link_veh_set[i])
+                {
+                    IVehicle veh = vis.Net.Vehicles.get_ItemByKey(veh_id);
+                    double speed = veh.get_AttValue("SPEED");
+                    veh.set_AttValue("SPEED", target_speed);
+                }
+            }
+        }
+       
 
     }
 }

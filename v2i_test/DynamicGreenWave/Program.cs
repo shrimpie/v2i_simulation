@@ -52,6 +52,11 @@ namespace DynamicGreenWave
                     int cur_time = t / Globals.SIM_RES;
                     net.lighten_signals(cur_time);
                     net.update_network_veh_status();
+
+                    if (cur_time > 100 && cur_time < 400)
+                    {
+                        net.test_control_link_veh_speed(2, 18.0);
+                    }
                 }
             }
         }

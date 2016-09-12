@@ -94,6 +94,11 @@ namespace DynamicGreenWave
             foreach (var inter in this.inters) inter.clear_signals();
         }
 
+        public void test_control_link_veh_speed(int inter_id, double target_speed)
+        {
+            this.inters[inter_id-1].control_link_veh_speed(this.vissim, target_speed);
+        }
+
         /*
         static int[] run_cmd(string cmd, string args)
         {
