@@ -51,8 +51,9 @@ namespace DynamicGreenWave
             for (int i = 0; i < this.inter_num; i++)
             {
                 SC[i] = scContain.get_ItemByKey(i + 1);
-                this.inters[i] = new Intersection(this.vissim, i + 1, this.dc, this.stpln_det_config[i], this.overflow_det_config[i], 
-                                                   SC[i], this.inter_graph, real_key);
+                this.inters[i] = new Intersection(this.vissim, i + 1, this.dc, 
+                    this.stpln_det_config[i], this.overflow_det_config[i], 
+                    SC[i], this.inter_graph, real_key);
             }
 
             foreach (var inter in this.inters)
@@ -66,7 +67,8 @@ namespace DynamicGreenWave
 
         public void update_network_status()
         {
-            foreach (var inter in this.inters) inter.update_link_status();
+            foreach (var inter in this.inters) 
+                inter.update_link_status();
         }
 
         public void update_network_veh_status()
@@ -91,12 +93,26 @@ namespace DynamicGreenWave
 
         public void clear_signals()
         {
-            foreach (var inter in this.inters) inter.clear_signals();
+            foreach (var inter in this.inters)
+                inter.clear_signals();
         }
 
         public void update_platoon()
         {
-            foreach (var inter in this.inters) inter.update_link_platoons();
+            foreach (var inter in this.inters)
+                inter.update_link_platoons();
+        }
+
+        public void merge_platoons()
+        {
+            foreach (var inter in this.inters)
+                inter.merge_platoons();
+        }
+
+        public void remove_undetected_vehicle_in_platoons()
+        {
+            foreach (var inter in this.inters)
+                inter.remove_undetected_vehicle_from_platoons();
         }
 
         public void test_control_link_veh_speed(int inter_id, double target_speed)

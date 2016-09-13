@@ -49,6 +49,7 @@ namespace DynamicGreenWave
         private int[] link_sat_veh = new int[Globals.THRU_LINK_NUM];
         private double[] link_len = new double[Globals.THRU_LINK_NUM];
         private bool[] link_len_set = new bool[Globals.THRU_LINK_NUM];
+        private int[] link_id = new int[Globals.THRU_LINK_NUM];
 
         private int phase_index = 0;
         // Phase index init value: 0
@@ -113,12 +114,22 @@ namespace DynamicGreenWave
 
         class PlatoonMine
         {
+            int inter_id;
+            int phase_id;
+            int init_link_id;
+            // Above three is used to debug.
+            // Detectors could miss a single vehicle, thus it can not be deleted from the platoon.
+            // If the platoon info is not right, its update won't excecute properly.
+
             double link_len;
             double advice_speed = 0.0;
             List<IVehicle> vehicles = new List<IVehicle>();
 
-            public PlatoonMine(double link_len)
+            public PlatoonMine(int inter_id, int phase_id, int link_id, double link_len)
             {
+                this.inter_id = inter_id;
+                this.phase_id = phase_id;
+                this.init_link_id = link_id;
                 this.link_len = link_len;
             }
 
@@ -140,6 +151,11 @@ namespace DynamicGreenWave
             public double get_link_len()
             {
                 return this.link_len;
+            }
+
+            public int get_link_id()
+            {
+                return this.init_link_id;
             }
 
             public double get_start_pos()
@@ -184,7 +200,7 @@ namespace DynamicGreenWave
         // This List of HashSet of int is to record vehicle id of each link of the intersection.
         private List<HashSet<int>> inter_link_veh_set = new List<HashSet<int>>();
 
-        private List<LinkedList<PlatoonMine>> link_platoon = new List<LinkedList<PlatoonMine>>();
+        private List<List<PlatoonMine>> link_platoon = new List<List<PlatoonMine>>();
 
 
         private double[] link_avg_speed = new double[Globals.THRU_LINK_NUM];
@@ -317,7 +333,7 @@ namespace DynamicGreenWave
             {
                 this.link_veh.Add(new LinkedList<VehicleMini>());
                 this.inter_link_veh_set.Add(new HashSet<int>());
-                this.link_platoon.Add(new LinkedList<PlatoonMine>());
+                this.link_platoon.Add(new List<PlatoonMine>());
             }
         }
 
@@ -424,11 +440,11 @@ namespace DynamicGreenWave
                         int id = this.stpln_det[i][j].get_AttValue("PORTNO");
                         if (veh_id != 0 && veh_id != this.stpln_det_vehno[i][j])
                         {
-                            this.stpln_pass_veh_counter[i]++;
+                            //this.stpln_pass_veh_counter[i]++;
                             this.stpln_det_vehno[i][j] = veh_id;
                             //this.update_link_veh_from_stopline_det(i);
 
-                            this.update_link_veh_set_from_stopline_det(i, veh_id);
+                            //this.update_link_veh_set_from_stopline_det(i, veh_id);
                             this.update_link_platoon_from_stopline_det(i, veh_id);
                         }
                     }
@@ -466,7 +482,7 @@ namespace DynamicGreenWave
 
                         if (veh_id != 0 && !this.parallel_detector_seen_this_car(veh_id, this.overflow_det_vehno[i]))
                         {
-                            this.overflow_pass_veh_counter[i]++;
+                            //this.overflow_pass_veh_counter[i]++;
                             this.overflow_det_vehno[i][j] = veh_id;
                             //double instant_speed = this.overflow_det[i][j].get_AttValue("VEHSPEED");
                             //double veh_speed = Math.Round(instant_speed / 3.6, 2);
@@ -474,7 +490,7 @@ namespace DynamicGreenWave
                             //this.update_link_speed(i, veh_speed);
                             //this.update_link_veh_from_overflow_det(i, j, veh_speed);
 
-                            this.update_link_veh_set_from_overflow_det(i, veh_id);
+                            //this.update_link_veh_set_from_overflow_det(i, veh_id);
                             this.update_link_platoon_from_overflow_det(i, veh_id);
                         }
                     }
@@ -493,6 +509,8 @@ namespace DynamicGreenWave
                 if (!this.link_len_set[index])
                 {
                     this.link_len[index] = veh.Lane.Link.get_AttValue("LENGTH2D");
+                    this.link_id[index] = veh.Lane.Link.get_AttValue("NO");
+                    this.link_len_set[index] = true;
                 }
                 double veh_pos = this.link_len[index] - pos;
 
@@ -508,9 +526,9 @@ namespace DynamicGreenWave
                     }
                 }
                 // If the veh is not near any platoon, add a new one.
-                PlatoonMine tmp = new PlatoonMine(this.link_len[index]);
+                PlatoonMine tmp = new PlatoonMine(this._id, index, this.link_id[index], this.link_len[index]);
                 tmp.add_vehicle_to_platoon(veh);
-                this.link_platoon[index].AddLast(tmp);
+                this.link_platoon[index].Add(tmp);
             }
             // For those turn into left-turn bay, remove it from existing platoon.
             // This enumeration is not efficient. PLEASE MAKE IT BETTER.
@@ -672,10 +690,10 @@ namespace DynamicGreenWave
                 foreach (var v in platoon.get_vehicles())
                 {
                     int v_id = v.get_AttValue("NO");
+                    // If vehicle exits link detected by detectors
                     if (v_id == veh_id)
                     {
                         platoon.remove_vehicle(veh_id);
-                        // Can you do this dynamically?
                         if (platoon.get_vehicles().Count < 1)
                             this.link_platoon[ph].Remove(platoon);
                         return;
@@ -709,8 +727,6 @@ namespace DynamicGreenWave
             }
         }
 
-        
-
         private void update_link_veh_from_stopline_det(int ph)
         {
             switch (ph+1)
@@ -735,7 +751,6 @@ namespace DynamicGreenWave
                     break;
             }
         }
-
 
         // This one is for queue update, where link_no is for 4 directions, not phase index
         private bool thru_phase_is_green(int link_no)
@@ -782,6 +797,7 @@ namespace DynamicGreenWave
                 this.lighten_normal_phases(Globals.FIXED_PHASES[this.phase_index]);
         }
 
+        /*
         public void update_link_platoons()
         {
             // link_platoon and inter_link_veh_set have the same length.
@@ -800,6 +816,7 @@ namespace DynamicGreenWave
                             if (!this.link_len_set[i])
                             {
                                 this.link_len[i] = veh.Lane.Link.get_AttValue("LENGTH2D");
+                                this.link_id[i] = veh.Lane.Link.get_AttValue("NO");
                                 this.link_len_set[i] = true;
                             }
                             veh_list.Add(new VehicleMini(this.link_len[i] - pos, 0.0, veh_id));
@@ -813,26 +830,88 @@ namespace DynamicGreenWave
                             {
                                 while (veh_list[j].get_position() - veh_list[j - 1].get_position() < Globals.PLATOON_HDWAY_DISTANCE)
                                     j++;
-                                PlatoonMine tmp = new PlatoonMine(this.link_len[i]);
+                                PlatoonMine tmp = new PlatoonMine(this._id, i, this.link_id[i], this.link_len[i]);
                                 for (int index = last_index; index <= j; index++)
                                 {
                                     tmp.add_vehicle_to_platoon(this.vis.Net.Vehicles.get_ItemByKey(veh_list[index]));
                                 }
-                                this.link_platoon[i].AddLast(tmp);
+                                this.link_platoon[i].Add(tmp);
                             }
                         }
                         else if(veh_list.Count == 1)
                         {
-                            PlatoonMine tmp = new PlatoonMine(this.link_len[i]);
+                            PlatoonMine tmp = new PlatoonMine(this._id, i, this.link_id[i], this.link_len[i]);
                             tmp.add_vehicle_to_platoon(this.vis.Net.Vehicles.get_ItemByKey(veh_list[0]));
-                            this.link_platoon[i].AddLast(tmp);
+                            this.link_platoon[i].Add(tmp);
                         }
                     }
                 }
             }
         }
+        */
 
+        // This merge thing is pretty costly.
+        public void merge_platoons()
+        {
+            for (int i = 0; i < this.link_platoon.Count; i++)
+            {
+                // Try merging when having more than 1 platoons.
+                if (this.link_platoon[i].Count > 1)
+                {
+                    int leader = 0;
+                    int j = 1;
 
+                    while (j < this.link_platoon[i].Count)
+                    {
+                        double front_platoon_start = this.link_platoon[i][leader].get_start_pos();
+                        double front_platoon_end = this.link_platoon[i][leader].get_end_pos();
+                        double cur_front = this.link_platoon[i][j].get_start_pos();
+
+                        if (Math.Abs(cur_front - front_platoon_start) <= Globals.PLATOON_HDWAY_DISTANCE ||
+                            Math.Abs(cur_front - front_platoon_end) <= Globals.PLATOON_HDWAY_DISTANCE)
+                        {
+                            foreach (var veh in this.link_platoon[i][j].get_vehicles())
+                            {
+                                this.link_platoon[i][leader].add_vehicle_to_platoon(veh);
+                            }
+                            this.link_platoon[i].RemoveAt(j);
+                            this.link_platoon[i][leader].get_vehicles().OrderBy(x => -x.get_AttValue("POS"));
+                        }
+                        else
+                        {
+                            leader += 1;
+                            j++;
+                        }
+
+                    }
+                }
+            }
+        }
+
+        public void remove_undetected_vehicle_from_platoons()
+        {
+            for (int i = 0; i < this.link_platoon.Count; i++)
+            {
+                int platoon_link_id = this.link_id[i];
+
+                for (int j = 0; j < this.link_platoon[i].Count; j++)
+                {
+                    List<IVehicle> vehs = this.link_platoon[i][j].get_vehicles();
+                    if(vehs.Count < 2)
+                    {
+                        for (int k = 0; k < vehs.Count; k++)
+                        {
+                            int veh_link_id = vehs[k].Lane.Link.get_AttValue("NO");
+                            if (platoon_link_id != veh_link_id)
+                            {
+                                int veh_id = vehs[k].get_AttValue("NO");
+                                this.link_platoon[i][j].remove_vehicle(veh_id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         public void test_control_link_veh_speed(Vissim vis, double target_speed)
         {

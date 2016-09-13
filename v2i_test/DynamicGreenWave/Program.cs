@@ -51,8 +51,17 @@ namespace DynamicGreenWave
                 {
                     int cur_time = t / Globals.SIM_RES;
                     net.lighten_signals(cur_time);
-                    net.update_network_veh_status();
-                    net.update_platoon();
+                    //net.update_network_veh_status();
+                    //net.update_platoon();
+
+                    if (cur_time == 5300)
+                        Console.WriteLine("");
+
+                    if (cur_time % 5 == 0)
+                    {
+                        net.remove_undetected_vehicle_in_platoons();
+                        net.merge_platoons();
+                    }
                 }
             }
         }
