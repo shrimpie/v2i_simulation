@@ -42,6 +42,10 @@ namespace DynamicGreenWave
         static public int PLATOON_SIZE_MIN = 5;
         static public int PLATOON_HDWAY_DISTANCE = 30;
 
+        static public int TIME_INT = 3;
+        static public double CLAER_INTER_SPEED = 36.0;
+        static public int NOT_INCLUDED = -1;
+
         static public int EWB_THRU = 0;
         static public int NSB_LEFT = 1;
         static public int NSB_THRU = 2;

@@ -99,8 +99,8 @@ namespace DynamicGreenWave
 
         public void update_platoon()
         {
-            foreach (var inter in this.inters)
-                inter.update_link_platoons();
+            //foreach (var inter in this.inters)
+            //    inter.update_link_platoons();
         }
 
         public void merge_platoons()
@@ -113,6 +113,12 @@ namespace DynamicGreenWave
         {
             foreach (var inter in this.inters)
                 inter.remove_undetected_vehicle_from_platoons();
+        }
+
+        public void test_predict_signal()
+        {
+            foreach (var inter in this.inters)
+                inter.predict_signal_plan();
         }
 
         public void test_control_link_veh_speed(int inter_id, double target_speed)

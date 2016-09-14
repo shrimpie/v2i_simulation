@@ -14,8 +14,6 @@ namespace DynamicGreenWave
     {
         Vissim vis = null;
         List<Intersection> neighbors = new List<Intersection>();
-        private int[] avg_green_ext = { -1, -1 };
-        private int[] predicted_queue_end = new int[Globals.THRU_LINK_NUM];
         private int _id;
         private HashSet<int> _phases_all = new HashSet<int>();
         private int[] _num_of_lanes = new int[Globals.LINK_NUM_ALL];
@@ -54,9 +52,8 @@ namespace DynamicGreenWave
         private int phase_index = 0;
         // Phase index init value: 0
         private int[] phase_last = new int[Globals.THRU_LINK_NUM];
-        
-        private int[] min_green_counter = new int[Globals.COMBI_PHASE_SUM];
-        static private int[] MIN_GREEN  = null;
+
+        private List<Tuple<int, int>> signal_plan = new List<Tuple<int, int>>();
 
         class VehicleMini
         {
@@ -349,14 +346,6 @@ namespace DynamicGreenWave
                 this.link_avg_speed[i] = Globals.LINK_AVG_SPEED;
         }
 
-        private void init_min_green()
-        {
-            MIN_GREEN = new int[] { Globals.MIN_THRU_GREEN, Globals.MIN_LEFT_GREEN, 
-                                    Globals.MIN_THRU_GREEN, Globals.MIN_LEFT_GREEN };
-            for (int i = 0; i < this.min_green_counter.Length; i++)
-                this.min_green_counter[i] = MIN_GREEN[i];
-        }
-
         private void init_link_sat_flow()
         {
             for(int i = 0; i < this.link_sat_veh.Length; i++)
@@ -401,7 +390,6 @@ namespace DynamicGreenWave
             this.init_link_sat_flow();
             this.init_link_veh_list();            
             this.init_link_avg_speed();
-            this.init_min_green();
             this.init_link_connection(inter_graph);
 
             this.init_link_len_set();
@@ -514,14 +502,15 @@ namespace DynamicGreenWave
                 }
                 double veh_pos = this.link_len[index] - pos;
 
-                // Do you need to enumerate each platoon, or just the last one?
-                // For now, just look all of them.
-                foreach (var platoon in this.link_platoon[index])
+                // Just compare with the last platoon
+                int platoon_count = this.link_platoon[index].Count;
+                if (platoon_count > 0)
                 {
-                    double end_pos = platoon.get_end_pos();
+                    PlatoonMine last = this.link_platoon[index][platoon_count - 1];
+                    double end_pos = last.get_end_pos();
                     if (veh_pos - end_pos <= Globals.PLATOON_HDWAY_DISTANCE)
                     {
-                        platoon.add_vehicle_to_platoon(veh);
+                        last.add_vehicle_to_platoon(veh);
                         return;
                     }
                 }
@@ -788,6 +777,158 @@ namespace DynamicGreenWave
             return index;
         }
 
+        private double get_single_deviation(int index, Tuple<int, int> arr_t)
+        {
+            double deviation = 0.0;
+            int tmp_start = arr_t.Item1;
+            int tmp_end = arr_t.Item2;
+
+            // Calculate deviation here.
+            //
+
+            return deviation;
+        }
+
+        private List<List<Tuple<int, int>>> prepare_arr_t(List<List<Tuple<int, int>>> pred_arr_t)
+        {
+            int extension_len = 0;
+            for (int i=0; i < pred_arr_t.Count; i++)
+            {
+                int cnt = pred_arr_t[i].Count;
+                if (cnt > 0)
+                {
+                    // Combine arrive time in the same Globals.TIME_INT.
+                    int j = 0;
+                    while (j < pred_arr_t[i].Count - 1)
+                    {
+                        // Both in the same interval.
+                        if (pred_arr_t[i][j].Item2 / Globals.TIME_INT ==
+                            pred_arr_t[i][j + 1].Item1 / Globals.TIME_INT)
+                        {
+                            pred_arr_t[i].Add(new Tuple<int, int>(pred_arr_t[i][j].Item2, pred_arr_t[i][j + 1].Item1));
+                            pred_arr_t[i].RemoveAt(j);
+                            pred_arr_t[i].RemoveAt(j);
+
+                            pred_arr_t[i].Sort((x, y) => x.Item1.CompareTo(y.Item1));
+                        }
+                        else
+                            j++;
+                    }
+                    pred_arr_t[i].Sort((x, y) => x.Item1.CompareTo(y.Item1));
+                    cnt = pred_arr_t[i].Count;
+                    if (pred_arr_t[i][cnt - 1].Item2 > extension_len)
+                        extension_len = pred_arr_t[i][cnt - 1].Item2;
+                }
+            }
+            int ext_count = extension_len / Globals.TIME_INT + 1;
+            List<List<Tuple<int, int>>> res = new List<List<Tuple<int, int>>>();
+            int[] index = new int[pred_arr_t.Count];
+            for(int i = 0; i < index.Length; i++) index[i]=0;
+
+            for (int i = 0; i < pred_arr_t.Count; i++)
+            {
+                res.Add(new List<Tuple<int,int>>());
+                for (int j = 0; j < ext_count; j++)
+                {
+                    if (pred_arr_t[i].Count > 0 && index[i] < pred_arr_t[i].Count)
+                    {
+                        int start = pred_arr_t[i][index[i]].Item1;
+                        int end = pred_arr_t[i][index[i]].Item2;
+
+                        int int_start = j * Globals.TIME_INT;
+                        int int_end = (j + 1) * Globals.TIME_INT - 1;
+
+                        // Arrival interval included in current interval
+                        if (start >= int_start && end <= int_end)
+                        {
+                            res[i].Add(new Tuple<int, int>(start, end));
+                            index[i]++;
+                        }
+                        // Arrival interval not included in current interval
+                        else if (start > int_end)
+                        {
+                            res[i].Add(new Tuple<int, int>(Globals.NOT_INCLUDED,
+                                                           Globals.NOT_INCLUDED));
+                        }
+                        // Arrival interval end part included in current interval
+                        else if (start < int_end && end >= int_start && end <= int_end)
+                        {
+                            res[i].Add(new Tuple<int, int>(int_start, end));
+                            index[i]++;
+                        }
+                        // Arrival interval front part included in current inteval
+                        else if (start >= int_start && start <= int_end && end > int_end)
+                        {
+                            res[i].Add(new Tuple<int, int>(start, int_end));
+                        }
+                        // Arrival interval includes current interval
+                        else if (start <= int_start && end >= int_end)
+                        {
+                            res[i].Add(new Tuple<int, int>(start, int_end));
+                        }
+                    }
+                    else
+                    {
+                        res[i].Add(new Tuple<int, int>(Globals.NOT_INCLUDED,
+                                                       Globals.NOT_INCLUDED));
+                    }
+                }
+            }
+
+            return res;
+        }
+
+        private void make_signal_predictions(List<List<Tuple<int, int>>> pred_arr_t)
+        {
+
+            pred_arr_t = this.prepare_arr_t(pred_arr_t);
+
+            int ext_count = pred_arr_t[0].Count;
+            int[] decision = new int[ext_count];
+            for (int i = 0; i < ext_count; i++)
+            {
+                double hori_green_deviation = 0.0;
+                //double vert_green_deviation = 0.0;
+
+                for (int j = 0; j < pred_arr_t.Count; j+=2)
+                {
+                    int cnt = pred_arr_t[j].Count;
+                    if( cnt > 0)
+                    {
+                        hori_green_deviation += this.get_single_deviation(i, pred_arr_t[j][cnt - 1]);
+                    }
+                }
+            }
+        }
+
+        public void predict_signal_plan()
+        {
+            List<List<Tuple<int, int>>> predicted_arr_time = new List<List<Tuple<int, int>>>();
+            for (int i = 0; i < this.link_platoon.Count; i++)
+            {
+                predicted_arr_time.Add(new List<Tuple<int,int>>());
+                for (int j = 0; j < this.link_platoon[i].Count; j++)
+                {
+                    List<IVehicle> pla = this.link_platoon[i][j].get_vehicles();
+                    if (pla.Count > 0)
+                    {
+                        double start_speed = pla[0].get_AttValue("SPEED");
+                        if (start_speed < Globals.CLAER_INTER_SPEED)
+                            start_speed = Globals.CLAER_INTER_SPEED;
+                        double start_pos = this.link_platoon[i][j].get_start_pos();
+                        double end_pos = this.link_platoon[i][j].get_start_pos();
+                        int start_arr_t = (int)(3.6 * start_pos / start_speed + 0.5);
+                        int end_arr_t = (int)(3.6 * end_pos / start_speed + 0.5);
+                        //if (end_arr_t == start_arr_t) end_arr_t += 1;
+                        predicted_arr_time[i].Add(new Tuple<int, int>(start_arr_t, end_arr_t));
+                    }
+                    else
+                        continue;
+                }
+            }
+            this.make_signal_predictions(predicted_arr_time);
+        }
+
         public void lighten_signals(int cur_time)
         {
             int in_cycle_time = cur_time % Globals.FIXED_CYCLE;
@@ -912,6 +1053,8 @@ namespace DynamicGreenWave
                 }
             }
         }
+
+
 
         public void test_control_link_veh_speed(Vissim vis, double target_speed)
         {

@@ -62,6 +62,9 @@ namespace DynamicGreenWave
                         net.remove_undetected_vehicle_in_platoons();
                         net.merge_platoons();
                     }
+                    // Test 
+                    if (cur_time % 100 == 0)
+                        net.test_predict_signal();
                 }
             }
         }
