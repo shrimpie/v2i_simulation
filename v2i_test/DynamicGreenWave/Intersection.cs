@@ -42,12 +42,15 @@ namespace DynamicGreenWave
         // Queue length = queued number of vehicles / number of lanes
         // Notice this queue records only through phases, left-turn is recorded in trap_counter
         private int[] queue_num = new int[Globals.THRU_LINK_NUM];
-        // Queued vehicle sum: how many vehicles are queued.
 
+        private int[] decision = null;
         private int[] link_sat_veh = new int[Globals.THRU_LINK_NUM];
         private double[] link_len = new double[Globals.THRU_LINK_NUM];
         private bool[] link_len_set = new bool[Globals.THRU_LINK_NUM];
         private int[] link_id = new int[Globals.THRU_LINK_NUM];
+
+        private bool signal_plan_calculated = false;
+        private int tmp_plan_counter = 0;
 
         private int phase_index = 0;
         // Phase index init value: 0
@@ -133,6 +136,8 @@ namespace DynamicGreenWave
             public void set_advice_speed(double speed)
             {
                 this.advice_speed = speed;
+                foreach (var veh in this.vehicles)
+                    veh.set_AttValue("SPEED", speed);
             }
 
             public double get_advice_speed()
@@ -428,24 +433,16 @@ namespace DynamicGreenWave
                         int id = this.stpln_det[i][j].get_AttValue("PORTNO");
                         if (veh_id != 0 && veh_id != this.stpln_det_vehno[i][j])
                         {
-                            //this.stpln_pass_veh_counter[i]++;
+                            this.stpln_pass_veh_counter[i]++;
                             this.stpln_det_vehno[i][j] = veh_id;
-                            //this.update_link_veh_from_stopline_det(i);
+                            this.update_link_veh_from_stopline_det(i);
 
-                            //this.update_link_veh_set_from_stopline_det(i, veh_id);
+                            this.update_link_veh_set_from_stopline_det(i, veh_id);
                             this.update_link_platoon_from_stopline_det(i, veh_id);
                         }
                     }
                 }
             }
-        }
-
-        private bool parallel_detector_seen_this_car(int veh_id, int[] det_vehno)
-        {
-            foreach (var id in det_vehno)
-                if (id == veh_id)
-                    return true;
-            return false;
         }
 
         private void update_link_speed(int ph, double speed)
@@ -468,17 +465,17 @@ namespace DynamicGreenWave
                     {
                         int veh_id = this.overflow_det[i][j].get_AttValue("VEHNO");
 
-                        if (veh_id != 0 && !this.parallel_detector_seen_this_car(veh_id, this.overflow_det_vehno[i]))
+                        if (veh_id != 0 && !Utils.parallel_detector_seen_this_car(veh_id, this.overflow_det_vehno[i]))
                         {
-                            //this.overflow_pass_veh_counter[i]++;
+                            this.overflow_pass_veh_counter[i]++;
                             this.overflow_det_vehno[i][j] = veh_id;
-                            //double instant_speed = this.overflow_det[i][j].get_AttValue("VEHSPEED");
-                            //double veh_speed = Math.Round(instant_speed / 3.6, 2);
+                            double instant_speed = this.overflow_det[i][j].get_AttValue("VEHSPEED");
+                            double veh_speed = Math.Round(instant_speed / 3.6, 2);
 
-                            //this.update_link_speed(i, veh_speed);
-                            //this.update_link_veh_from_overflow_det(i, j, veh_speed);
+                            this.update_link_speed(i, veh_speed);
+                            this.update_link_veh_from_overflow_det(i, j, veh_speed);
 
-                            //this.update_link_veh_set_from_overflow_det(i, veh_id);
+                            this.update_link_veh_set_from_overflow_det(i, veh_id);
                             this.update_link_platoon_from_overflow_det(i, veh_id);
                         }
                     }
@@ -489,7 +486,7 @@ namespace DynamicGreenWave
         private void update_link_platoon_from_overflow_det(int ph, int veh_id)
         {
             // For vehicles newly come in the links, add them to the existing platoon or create a new one.
-            if (this.direction_is_thru(ph))
+            if (Utils.direction_is_thru(ph))
             {
                 IVehicle veh = this.vis.Net.Vehicles.get_ItemByKey(veh_id);
                 int index = ph < 2 ? ph : ph - 2;
@@ -521,7 +518,7 @@ namespace DynamicGreenWave
             }
             // For those turn into left-turn bay, remove it from existing platoon.
             // This enumeration is not efficient. PLEASE MAKE IT BETTER.
-            else if (this.direction_is_left(ph))
+            else if (Utils.direction_is_left(ph))
             {
                 int index = ph > 3 ? ph - 4 : ph - 2;
                 this.remove_veh_from_platoon(index, veh_id);
@@ -566,37 +563,20 @@ namespace DynamicGreenWave
             this.update_stpln_counter();
             this.update_overflow_counter_and_link_speed();
 
-            //foreach (var p in this._phases_all)
-                //this.record_each_trap((int)p - 1);
+            foreach (var p in this._phases_all)
+                this.record_each_trap((int)p - 1);
         }
 
-        private bool direction_is_thru(int dir)
-        {
-            if (dir + 1 == Globals.EB_THRU || dir + 1 == Globals.WB_THRU || 
-                dir + 1 == Globals.SB_THRU || dir + 1 == Globals.NB_THRU)
-                return true;
-            return false;
-        }
-
-        private bool direction_is_left(int dir)
-        {
-            if (dir + 1 == Globals.EB_LEFT || dir + 1 == Globals.WB_LEFT || 
-                dir + 1 == Globals.SB_LEFT || dir + 1 == Globals.NB_LEFT)
-                return true;
-            return false;
-        }
-
-        // 
         private void update_link_veh_set_from_overflow_det(int ph, int veh_id)
         {
             // For vehicles newly come in the links, add them to the set.
-            if (this.direction_is_thru(ph))
+            if (Utils.direction_is_thru(ph))
             {
                 int index = ph < 2 ? ph : ph - 2;
                 this.inter_link_veh_set[index].Add(veh_id);
             }
             // For those turn into left-turn bay, remove them.
-            else if (this.direction_is_left(ph))
+            else if (Utils.direction_is_left(ph))
             {
                 int index = ph > 3 ? ph - 4 : ph - 2;
                 this.inter_link_veh_set[index].Remove(veh_id);
@@ -606,7 +586,7 @@ namespace DynamicGreenWave
         private void update_link_veh_from_overflow_det(int ph, int which_det, double speed)
         {
             // Link start, vehicle entry, add to list
-            if (this.direction_is_thru(ph))
+            if (Utils.direction_is_thru(ph))
             {
                 // Add vehicle to link_veh
                 double pos = Math.Round(this.overflow_det[ph][which_det].get_AttValue("POS"), 2);
@@ -619,7 +599,7 @@ namespace DynamicGreenWave
             }
             // Link left turn vehicle entry, remove from list, if vehile number is included, this is simple, 
             // But it's cheating then, so find the one that has a similar position, remove it from the list
-            else if (this.direction_is_left(ph))
+            else if (Utils.direction_is_left(ph))
             {
                 // This position is where the left-turn overflow detector is
                 double overflow_pos = Math.Round(this.overflow_det[ph][which_det].get_AttValue("POS"), 2);
@@ -741,15 +721,6 @@ namespace DynamicGreenWave
             }
         }
 
-        // This one is for queue update, where link_no is for 4 directions, not phase index
-        private bool thru_phase_is_green(int link_no)
-        {
-            if ((this.phase_index == 0 && (link_no == 0 || link_no == 1)) ||
-                 (this.phase_index == 2 && (link_no == 2 || link_no == 3)))
-                return true;
-            return false;
-        }
-
         private void lighten_normal_phases(HashSet<int> phases)
         {
             foreach (var p in this.cur_phases)
@@ -763,179 +734,108 @@ namespace DynamicGreenWave
             this.cur_phases = phases;
         }
 
-        private int get_phase_index_using_in_cycle_time(int in_cycle_time)
+        private void set_platoon_advice_speed(List<List<double>> tgt_platoon_speed)
         {
-            int index = 0;
-            if (in_cycle_time < Globals.FIXED_CYCLE / 3)
-                index = 0;
-            else if (in_cycle_time < Globals.FIXED_CYCLE / 2)
-                index = 1;
-            else if (in_cycle_time < 5 * Globals.FIXED_CYCLE / 6)
-                index = 2;
-            else if (in_cycle_time < Globals.FIXED_CYCLE)
-                index = 3;
-            return index;
+            for (int i = 0; i < tgt_platoon_speed.Count; i++)
+            {
+                for (int j = 0; j < tgt_platoon_speed[i].Count; j++)
+                    this.link_platoon[i][j].set_advice_speed(tgt_platoon_speed[i][j]);
+            }
         }
 
-        private double get_single_deviation(int index, Tuple<int, int> arr_t)
+        private int[] append_left_phase()
         {
-            double deviation = 0.0;
-            int tmp_start = arr_t.Item1;
-            int tmp_end = arr_t.Item2;
+            List<int> plan = new List<int>();
+            for (int i = 0; i < this.decision.Length; i++)
+                plan.Add(this.decision[i]);
+            if (this.trap_counter[2] > 0 || this.trap_counter[3] > 0)
+                plan.Add(Globals.NSB_LEFT);
+            if (this.trap_counter[6] > 0 || this.trap_counter[7] > 0)
+                plan.Add(Globals.EWB_LEFT);
 
-            // Calculate deviation here.
-            //
-
-            return deviation;
-        }
-
-        private List<List<Tuple<int, int>>> prepare_arr_t(List<List<Tuple<int, int>>> pred_arr_t)
-        {
-            int extension_len = 0;
-            for (int i=0; i < pred_arr_t.Count; i++)
-            {
-                int cnt = pred_arr_t[i].Count;
-                if (cnt > 0)
-                {
-                    // Combine arrive time in the same Globals.TIME_INT.
-                    int j = 0;
-                    while (j < pred_arr_t[i].Count - 1)
-                    {
-                        // Both in the same interval.
-                        if (pred_arr_t[i][j].Item2 / Globals.TIME_INT ==
-                            pred_arr_t[i][j + 1].Item1 / Globals.TIME_INT)
-                        {
-                            pred_arr_t[i].Add(new Tuple<int, int>(pred_arr_t[i][j].Item2, pred_arr_t[i][j + 1].Item1));
-                            pred_arr_t[i].RemoveAt(j);
-                            pred_arr_t[i].RemoveAt(j);
-
-                            pred_arr_t[i].Sort((x, y) => x.Item1.CompareTo(y.Item1));
-                        }
-                        else
-                            j++;
-                    }
-                    pred_arr_t[i].Sort((x, y) => x.Item1.CompareTo(y.Item1));
-                    cnt = pred_arr_t[i].Count;
-                    if (pred_arr_t[i][cnt - 1].Item2 > extension_len)
-                        extension_len = pred_arr_t[i][cnt - 1].Item2;
-                }
-            }
-            int ext_count = extension_len / Globals.TIME_INT + 1;
-            List<List<Tuple<int, int>>> res = new List<List<Tuple<int, int>>>();
-            int[] index = new int[pred_arr_t.Count];
-            for(int i = 0; i < index.Length; i++) index[i]=0;
-
-            for (int i = 0; i < pred_arr_t.Count; i++)
-            {
-                res.Add(new List<Tuple<int,int>>());
-                for (int j = 0; j < ext_count; j++)
-                {
-                    if (pred_arr_t[i].Count > 0 && index[i] < pred_arr_t[i].Count)
-                    {
-                        int start = pred_arr_t[i][index[i]].Item1;
-                        int end = pred_arr_t[i][index[i]].Item2;
-
-                        int int_start = j * Globals.TIME_INT;
-                        int int_end = (j + 1) * Globals.TIME_INT - 1;
-
-                        // Arrival interval included in current interval
-                        if (start >= int_start && end <= int_end)
-                        {
-                            res[i].Add(new Tuple<int, int>(start, end));
-                            index[i]++;
-                        }
-                        // Arrival interval not included in current interval
-                        else if (start > int_end)
-                        {
-                            res[i].Add(new Tuple<int, int>(Globals.NOT_INCLUDED,
-                                                           Globals.NOT_INCLUDED));
-                        }
-                        // Arrival interval end part included in current interval
-                        else if (start < int_end && end >= int_start && end <= int_end)
-                        {
-                            res[i].Add(new Tuple<int, int>(int_start, end));
-                            index[i]++;
-                        }
-                        // Arrival interval front part included in current inteval
-                        else if (start >= int_start && start <= int_end && end > int_end)
-                        {
-                            res[i].Add(new Tuple<int, int>(start, int_end));
-                        }
-                        // Arrival interval includes current interval
-                        else if (start <= int_start && end >= int_end)
-                        {
-                            res[i].Add(new Tuple<int, int>(start, int_end));
-                        }
-                    }
-                    else
-                    {
-                        res[i].Add(new Tuple<int, int>(Globals.NOT_INCLUDED,
-                                                       Globals.NOT_INCLUDED));
-                    }
-                }
-            }
-
-            return res;
-        }
-
-        private void make_signal_predictions(List<List<Tuple<int, int>>> pred_arr_t)
-        {
-
-            pred_arr_t = this.prepare_arr_t(pred_arr_t);
-
-            int ext_count = pred_arr_t[0].Count;
-            int[] decision = new int[ext_count];
-            for (int i = 0; i < ext_count; i++)
-            {
-                double hori_green_deviation = 0.0;
-                //double vert_green_deviation = 0.0;
-
-                for (int j = 0; j < pred_arr_t.Count; j+=2)
-                {
-                    int cnt = pred_arr_t[j].Count;
-                    if( cnt > 0)
-                    {
-                        hori_green_deviation += this.get_single_deviation(i, pred_arr_t[j][cnt - 1]);
-                    }
-                }
-            }
+            int[] res_plan = new int[plan.Count];
+            for (int i = 0; i < plan.Count; i++)
+                res_plan[i] = plan[i];
+            return res_plan;
         }
 
         public void predict_signal_plan()
         {
-            List<List<Tuple<int, int>>> predicted_arr_time = new List<List<Tuple<int, int>>>();
+            List<List<Tuple<int, int, int, double>>> predicted_arr_time = new List<List<Tuple<int, int, int, double>>>();
             for (int i = 0; i < this.link_platoon.Count; i++)
             {
-                predicted_arr_time.Add(new List<Tuple<int,int>>());
+                predicted_arr_time.Add(new List<Tuple<int, int, int, double>>());
                 for (int j = 0; j < this.link_platoon[i].Count; j++)
                 {
                     List<IVehicle> pla = this.link_platoon[i][j].get_vehicles();
                     if (pla.Count > 0)
                     {
                         double start_speed = pla[0].get_AttValue("SPEED");
-                        if (start_speed < Globals.CLAER_INTER_SPEED)
-                            start_speed = Globals.CLAER_INTER_SPEED;
-                        double start_pos = this.link_platoon[i][j].get_start_pos();
-                        double end_pos = this.link_platoon[i][j].get_start_pos();
-                        int start_arr_t = (int)(3.6 * start_pos / start_speed + 0.5);
-                        int end_arr_t = (int)(3.6 * end_pos / start_speed + 0.5);
-                        //if (end_arr_t == start_arr_t) end_arr_t += 1;
-                        predicted_arr_time[i].Add(new Tuple<int, int>(start_arr_t, end_arr_t));
+                        int pla_size = pla.Count;
+                        // If these vehicles are in queue.
+                        if (start_speed < Globals.QUEUE_SPEED)
+                        {
+                            int start_arr_t = 0;
+                            int lane_index = i > 2 ? i + 2 : i;
+                            double flow_rate = Globals.SAT_FLOW_RATE * this._num_of_lanes[lane_index];
+                            int end_arr_t = (int)(pla_size / flow_rate + 0.5);
+                            if (end_arr_t < Globals.PRED_TIME)
+                                predicted_arr_time[i].Add(new Tuple<int, int, int, double>(start_arr_t, end_arr_t, pla_size, start_speed));
+                        }
+                        else
+                        {
+                            //if (start_speed < Globals.CLAER_INTER_SPEED)
+                            //    start_speed = Globals.CLAER_INTER_SPEED;
+                            double start_pos = this.link_platoon[i][j].get_start_pos();
+                            double end_pos = this.link_platoon[i][j].get_start_pos();
+                            int start_arr_t = (int)(3.6 * start_pos / start_speed + 0.5);
+                            int end_arr_t = (int)(3.6 * end_pos / start_speed + 0.5);
+                            if( end_arr_t < Globals.PRED_TIME)
+                                predicted_arr_time[i].Add(new Tuple<int, int, int, double>(start_arr_t, end_arr_t, pla_size, start_speed));
+                        }
                     }
                     else
                         continue;
                 }
             }
-            this.make_signal_predictions(predicted_arr_time);
+            List<List<double>> tgt_platoon_speed = new List<List<double>>();
+            for (int i = 0; i < 4; i++) tgt_platoon_speed.Add(new List<double>());
+
+            this.decision = Utils.make_signal_predictions2(predicted_arr_time, tgt_platoon_speed);
+            this.set_platoon_advice_speed(tgt_platoon_speed);
+            this.decision = this.append_left_phase();
+            //this.decision = Utils.add_clear_red(this.decision);
+            this.signal_plan_calculated = true;
         }
 
         public void lighten_signals(int cur_time)
         {
-            int in_cycle_time = cur_time % Globals.FIXED_CYCLE;
-            this.phase_index = this.get_phase_index_using_in_cycle_time(in_cycle_time);
+            if (cur_time < Globals.WARM_UP_TIME)
+            {
+                int in_cycle_time = cur_time % Globals.FIXED_CYCLE;
+                this.phase_index = Utils.get_phase_index_using_in_cycle_time(in_cycle_time);
 
-            for (int i = 0; i < Globals.COMBI_PHASE_SUM; i++)
-                this.lighten_normal_phases(Globals.FIXED_PHASES[this.phase_index]);
+                for (int i = 0; i < Globals.COMBI_PHASE_SUM; i++)
+                    this.lighten_normal_phases(Globals.FIXED_PHASES[this.phase_index]);
+            }
+            else if (!this.signal_plan_calculated)
+                this.predict_signal_plan();
+
+            if (this.signal_plan_calculated)
+            {
+                if (this.tmp_plan_counter < this.decision.Length * Globals.TIME_INT)
+                {
+                    int phase_index = this.decision[this.tmp_plan_counter / Globals.TIME_INT];
+                    this.lighten_normal_phases(Globals.FIXED_PHASES[phase_index]);
+                    this.tmp_plan_counter++;
+                }
+                else
+                {
+                    this.tmp_plan_counter = 0;
+                    this.signal_plan_calculated = false;
+                    this.predict_signal_plan();
+                }
+            }
         }
 
         /*
@@ -992,6 +892,7 @@ namespace DynamicGreenWave
         */
 
         // This merge thing is pretty costly.
+        // You have to make it better.
         public void merge_platoons()
         {
             for (int i = 0; i < this.link_platoon.Count; i++)
@@ -1053,8 +954,6 @@ namespace DynamicGreenWave
                 }
             }
         }
-
-
 
         public void test_control_link_veh_speed(Vissim vis, double target_speed)
         {

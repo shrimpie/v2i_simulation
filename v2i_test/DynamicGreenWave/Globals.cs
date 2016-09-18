@@ -43,14 +43,25 @@ namespace DynamicGreenWave
         static public int PLATOON_HDWAY_DISTANCE = 30;
 
         static public int TIME_INT = 3;
-        static public double CLAER_INTER_SPEED = 36.0;
+        static public int PRED_INT = 6;
+        static public int PRED_TIME = TIME_INT * PRED_INT;
+        static public double CLAER_INTER_SPEED = 10 * 3.6;
+        static public double QUEUE_SPEED = 3 * 3.6;
+        static public double MAX_SPEED = 20 * 3.6;
+        static public double MIN_SPEED = 1 * 3.6;
+
         static public int NOT_INCLUDED = -1;
+
+        static public int WARM_UP_TIME = 200;
+        static public int LOST_TIME = 3;
 
         static public int EWB_THRU = 0;
         static public int NSB_LEFT = 1;
         static public int NSB_THRU = 2;
         static public int EWB_LEFT = 3;
-        
+        static public int ONLY_RIGHT = 4;
+
+
         public const int EB_THRU = 1;       // Phase 1
         public const int WB_THRU = 2;       // Phase 2
         public const int NB_LEFT = 3;       // Phase 3
@@ -71,12 +82,13 @@ namespace DynamicGreenWave
             new HashSet<int>() { NB_LEFT, SB_LEFT, SB_RIGHT, NB_RIGHT, WB_RIGHT, EB_RIGHT },
             new HashSet<int>() { NB_THRU, SB_THRU, SB_RIGHT, NB_RIGHT, WB_RIGHT, EB_RIGHT },
             new HashSet<int>() { WB_LEFT, EB_LEFT, SB_RIGHT, NB_RIGHT, WB_RIGHT, EB_RIGHT },
+            new HashSet<int>() { SB_RIGHT, NB_RIGHT, WB_RIGHT, EB_RIGHT },
         };
 
         static public int LINK_AVG_SPEED = 15;
         // Connected intersections: { left, dist, right, dist, down, dist, up, dist }, if no, -1
         static public int[,] NETWORK_GRAPH = new int[,]
-            {    {  -1, 350, LINK_AVG_SPEED,  1, 660, LINK_AVG_SPEED , -1, 300, LINK_AVG_SPEED,  3, 210, LINK_AVG_SPEED },
+            {   {  -1, 350, LINK_AVG_SPEED,  1, 660, LINK_AVG_SPEED , -1, 300, LINK_AVG_SPEED,  3, 210, LINK_AVG_SPEED },
                 {   0, 660, LINK_AVG_SPEED,  2, 440, LINK_AVG_SPEED , -1, 200, LINK_AVG_SPEED,  4, 210, LINK_AVG_SPEED },
                 {   1, 440, LINK_AVG_SPEED, -1, 360, LINK_AVG_SPEED , -1, 240, LINK_AVG_SPEED,  5, 240, LINK_AVG_SPEED },
                 {  -1, 260, LINK_AVG_SPEED,  4, 660, LINK_AVG_SPEED ,  0, 210, LINK_AVG_SPEED,  6, 380, LINK_AVG_SPEED },

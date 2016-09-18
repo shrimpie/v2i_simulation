@@ -37,6 +37,9 @@ namespace DynamicGreenWave
 
             for (int t = 0; t != sim_time; t++)
             {
+                if (t == sim_time - 1)
+                    break;
+                
                 simulation.RunSingleStep();
 
                 if (!signals_cleared)
@@ -52,19 +55,12 @@ namespace DynamicGreenWave
                     int cur_time = t / Globals.SIM_RES;
                     net.lighten_signals(cur_time);
                     //net.update_network_veh_status();
-                    //net.update_platoon();
-
-                    if (cur_time == 5300)
-                        Console.WriteLine("");
 
                     if (cur_time % 5 == 0)
                     {
                         net.remove_undetected_vehicle_in_platoons();
                         net.merge_platoons();
                     }
-                    // Test 
-                    if (cur_time % 100 == 0)
-                        net.test_predict_signal();
                 }
             }
         }
