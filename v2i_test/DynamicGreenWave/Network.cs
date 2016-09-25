@@ -19,6 +19,8 @@ namespace DynamicGreenWave
         private string[] stpln_det_config = null;
         private string[] overflow_det_config = null;
 
+        private bool global_plan_get = false;
+
 
         public Network(Vissim vissim, int inter_num)
         {
@@ -85,10 +87,13 @@ namespace DynamicGreenWave
             this.overflow_det_config = Globals.OVERFLOW_CONFIG;
         }
 
-        public void lighten_signals(int cur_time)
+        public bool lighten_signals(int cur_time)
         {
+            bool need_new_plan = false;
             for (int i=0; i < this.inters.Length; i++)
-                this.inters[i].lighten_signals(cur_time);
+                need_new_plan |= this.inters[i].lighten_signals(cur_time);
+
+            return need_new_plan;
         }
 
         public void clear_signals()
@@ -115,16 +120,44 @@ namespace DynamicGreenWave
                 inter.remove_undetected_vehicle_from_platoons();
         }
 
-        public void test_predict_signal()
+        //public void test_predict_signal()
+        //{
+        //    foreach (var inter in this.inters)
+        //        inter.predict_signal_plan();
+        //}
+
+        public void predict_signal_plan_using_ga()
         {
-            foreach (var inter in this.inters)
-                inter.predict_signal_plan();
+            for (int i = 0; i < this.inters.Length; i++)
+                this.inters[i].clear_predicted_arr_time();
+
+            string res_str = GA.find_optimum(this.inters);
+            for (int i = 0; i < this.inters.Length; i++)
+            {
+                string inter_plan_str = res_str.Substring(i * Globals.PRED_INT, Globals.PRED_INT);
+                this.inters[i].set_plan_using_ga_result(inter_plan_str);
+            }
+            this.global_plan_get = true;
+        }
+
+        public bool get_global_plan_status()
+        {
+            return this.global_plan_get;
+        }
+
+        public void set_global_plan_status(bool valid_plan)
+        {
+            this.global_plan_get = valid_plan;
         }
 
         public void test_control_link_veh_speed(int inter_id, double target_speed)
         {
             this.inters[inter_id-1].test_control_link_veh_speed(this.vissim, target_speed);
         }
+
+
+
+
 
         /*
         static int[] run_cmd(string cmd, string args)

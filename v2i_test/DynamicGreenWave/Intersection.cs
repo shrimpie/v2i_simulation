@@ -211,6 +211,8 @@ namespace DynamicGreenWave
         private double[] link_avg_speed_start = { Globals.LINK_AVG_SPEED, Globals.LINK_AVG_SPEED, 
                                                   Globals.LINK_AVG_SPEED, Globals.LINK_AVG_SPEED };
 
+        List<List<Tuple<int, int, int, double>>> predicted_arr_time = new List<List<Tuple<int,int,int,double>>>();
+
         public int get_id()
         {
             return this._id;
@@ -743,6 +745,35 @@ namespace DynamicGreenWave
             }
         }
 
+        public int get_num_of_lanes(int direction)
+        {
+            return this._num_of_lanes[direction];
+        }
+
+        public int get_link_travel_time(int direction)
+        {
+            int tt = (int)(this.link_len[direction] / this.link_avg_speed[direction]);
+            return tt;
+        }
+
+        public double get_link_speed(int direction)
+        {
+            return this.link_avg_speed[direction];
+        }
+
+        public void set_plan_using_ga_result(string plan_str)
+        {
+            if (this.decision == null)
+                this.decision = new int[Globals.PRED_INT];
+
+            if (plan_str.Length == Globals.PRED_INT)
+            {
+                for (int i = 0; i < Globals.PRED_INT; i++)
+                    this.decision[i] = plan_str[i] - '0';
+            }
+            this.signal_plan_calculated = true;
+        }
+
         private int[] append_left_phase()
         {
             List<int> plan = new List<int>();
@@ -759,12 +790,13 @@ namespace DynamicGreenWave
             return res_plan;
         }
 
-        public void predict_signal_plan()
+        private void set_predict_platoon_arr_time()
         {
-            List<List<Tuple<int, int, int, double>>> predicted_arr_time = new List<List<Tuple<int, int, int, double>>>();
+            if( this.predicted_arr_time.Count == 0)
+                this.predicted_arr_time = new List<List<Tuple<int, int, int, double>>>();
             for (int i = 0; i < this.link_platoon.Count; i++)
             {
-                predicted_arr_time.Add(new List<Tuple<int, int, int, double>>());
+                this.predicted_arr_time.Add(new List<Tuple<int, int, int, double>>());
                 for (int j = 0; j < this.link_platoon[i].Count; j++)
                 {
                     List<IVehicle> pla = this.link_platoon[i][j].get_vehicles();
@@ -780,35 +812,52 @@ namespace DynamicGreenWave
                             double flow_rate = Globals.SAT_FLOW_RATE * this._num_of_lanes[lane_index];
                             int end_arr_t = (int)(pla_size / flow_rate + 0.5);
                             if (end_arr_t < Globals.PRED_TIME)
-                                predicted_arr_time[i].Add(new Tuple<int, int, int, double>(start_arr_t, end_arr_t, pla_size, start_speed));
+                                this.predicted_arr_time[i].Add(new Tuple<int, int, int, double>(start_arr_t, end_arr_t, pla_size, start_speed));
                         }
                         else
                         {
-                            //if (start_speed < Globals.CLAER_INTER_SPEED)
-                            //    start_speed = Globals.CLAER_INTER_SPEED;
                             double start_pos = this.link_platoon[i][j].get_start_pos();
                             double end_pos = this.link_platoon[i][j].get_start_pos();
                             int start_arr_t = (int)(3.6 * start_pos / start_speed + 0.5);
                             int end_arr_t = (int)(3.6 * end_pos / start_speed + 0.5);
-                            if( end_arr_t < Globals.PRED_TIME)
-                                predicted_arr_time[i].Add(new Tuple<int, int, int, double>(start_arr_t, end_arr_t, pla_size, start_speed));
+                            if (end_arr_t < Globals.PRED_TIME)
+                                this.predicted_arr_time[i].Add(new Tuple<int, int, int, double>(start_arr_t, end_arr_t, pla_size, start_speed));
                         }
                     }
                     else
                         continue;
                 }
             }
+        }
+
+        public void clear_predicted_arr_time()
+        {
+            if(this.predicted_arr_time.Count != 0)
+                this.predicted_arr_time.Clear();
+        }
+
+        public List<Tuple<int, int, int, double>> get_predict_platoon_arr_time(int direction)
+        {
+            if (this.predicted_arr_time.Count == 0)
+                this.set_predict_platoon_arr_time();
+            return this.predicted_arr_time[direction];
+        }
+
+        /*
+        public void predict_signal_plan()
+        {
+            List<List<Tuple<int, int, int, double>>> predicted_arr_time = this.predict_platoon_arr_time();
             List<List<double>> tgt_platoon_speed = new List<List<double>>();
             for (int i = 0; i < 4; i++) tgt_platoon_speed.Add(new List<double>());
-
             this.decision = Utils.make_signal_predictions2(predicted_arr_time, tgt_platoon_speed);
             this.set_platoon_advice_speed(tgt_platoon_speed);
             this.decision = this.append_left_phase();
             //this.decision = Utils.add_clear_red(this.decision);
             this.signal_plan_calculated = true;
         }
+         * */
 
-        public void lighten_signals(int cur_time)
+        public bool lighten_signals(int cur_time)
         {
             if (cur_time < Globals.WARM_UP_TIME)
             {
@@ -817,23 +866,25 @@ namespace DynamicGreenWave
 
                 for (int i = 0; i < Globals.COMBI_PHASE_SUM; i++)
                     this.lighten_normal_phases(Globals.FIXED_PHASES[this.phase_index]);
+                // Means no need to update signal plan.
+                return false;
             }
-            else if (!this.signal_plan_calculated)
-                this.predict_signal_plan();
-
-            if (this.signal_plan_calculated)
+            else
             {
-                if (this.tmp_plan_counter < this.decision.Length * Globals.TIME_INT)
+                if (signal_plan_calculated && this.tmp_plan_counter < this.decision.Length * Globals.TIME_INT - 1)
                 {
                     int phase_index = this.decision[this.tmp_plan_counter / Globals.TIME_INT];
                     this.lighten_normal_phases(Globals.FIXED_PHASES[phase_index]);
                     this.tmp_plan_counter++;
+                    // No need to update signal plan.
+                    return false;
                 }
                 else
                 {
                     this.tmp_plan_counter = 0;
                     this.signal_plan_calculated = false;
-                    this.predict_signal_plan();
+                    // Please update next second.
+                    return true;
                 }
             }
         }

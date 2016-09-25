@@ -53,8 +53,12 @@ namespace DynamicGreenWave
                 if (t % Globals.SIM_RES == 0)
                 {
                     int cur_time = t / Globals.SIM_RES;
-                    net.lighten_signals(cur_time);
-                    //net.update_network_veh_status();
+
+                    if (cur_time > Globals.WARM_UP_TIME && !net.get_global_plan_status())
+                        net.predict_signal_plan_using_ga();
+                    
+                    if (net.lighten_signals(cur_time))
+                        net.set_global_plan_status(false);
 
                     if (cur_time % 5 == 0)
                     {

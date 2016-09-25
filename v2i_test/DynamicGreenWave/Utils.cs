@@ -8,6 +8,17 @@ namespace DynamicGreenWave
 {
     class Utils
     {
+        private static readonly Random getrandom = new Random();
+        private static readonly object syncLock = new object();
+
+        // include 'min', not 'max'
+        public static int get_random_number(int min, int max)
+        {
+            lock (syncLock)
+            { // synchronize
+                return getrandom.Next(min, max);
+            }
+        }
 
         static public bool direction_is_thru(int dir)
         {
@@ -36,11 +47,11 @@ namespace DynamicGreenWave
         static public int get_phase_index_using_in_cycle_time(int in_cycle_time)
         {
             int index = 0;
-            if (in_cycle_time < Globals.FIXED_CYCLE / 3)
+            if (in_cycle_time < 5 * Globals.FIXED_CYCLE / 12)
                 index = 0;
             else if (in_cycle_time < Globals.FIXED_CYCLE / 2)
                 index = 1;
-            else if (in_cycle_time < 5 * Globals.FIXED_CYCLE / 6)
+            else if (in_cycle_time < 11 * Globals.FIXED_CYCLE / 12)
                 index = 2;
             else if (in_cycle_time < Globals.FIXED_CYCLE)
                 index = 3;
@@ -176,7 +187,7 @@ namespace DynamicGreenWave
             return plan;
         }
 
-        static private List<Tuple<int, int>> get_tmp_plan(int plan_index, int shift_num)
+        static public List<Tuple<int, int>> get_tmp_plan(int plan_index, int shift_num)
         {
             List<Tuple<int, int>> res_plan = new List<Tuple<int, int>>();
             int[] tmp_plan = get_plan_bits(plan_index, shift_num);

@@ -8,7 +8,7 @@ namespace DynamicGreenWave
 {
     class Globals
     {
-        static public int SIM_TIME = 3600 * 3;          // Simulation time
+        static public int SIM_TIME = 3600 * 1;          // Simulation time
         static public double SIM_SPEED = 0.2;           // Simulation LINK_AVG_SPEED
         static public int SIM_RES = 5;                  // Simulation resolution
         static public int INTER_NUM = 12;               // Intersection counts
@@ -43,7 +43,7 @@ namespace DynamicGreenWave
         static public int PLATOON_HDWAY_DISTANCE = 30;
 
         static public int TIME_INT = 3;
-        static public int PRED_INT = 6;
+        static public int PRED_INT = 10;
         static public int PRED_TIME = TIME_INT * PRED_INT;
         static public double CLAER_INTER_SPEED = 10 * 3.6;
         static public double QUEUE_SPEED = 3 * 3.6;
@@ -52,8 +52,50 @@ namespace DynamicGreenWave
 
         static public int NOT_INCLUDED = -1;
 
-        static public int WARM_UP_TIME = 200;
+        static public int WARM_UP_TIME = 300;
         static public int LOST_TIME = 3;
+
+        static public int POPULATION_SIZE = 100;
+
+        static public List<Tuple<int, int, int>> CONNECTED_INTERS = new List<Tuple<int, int, int>>()
+        {
+            // Horizontal connected ones.
+            new Tuple<int, int, int>(1, 2, 0),
+            new Tuple<int, int, int>(2, 3, 0),
+            new Tuple<int, int, int>(4, 5, 0),
+            new Tuple<int, int, int>(5, 6, 0),
+            new Tuple<int, int, int>(7, 8, 0),
+            new Tuple<int, int, int>(8, 9, 0),
+            new Tuple<int, int, int>(10, 11, 0),
+            new Tuple<int, int, int>(11, 12, 0),
+            new Tuple<int, int, int>(2, 1, 1),
+            new Tuple<int, int, int>(3, 2, 1),
+            new Tuple<int, int, int>(5, 4, 1),
+            new Tuple<int, int, int>(6, 5, 1),
+            new Tuple<int, int, int>(8, 7, 1),
+            new Tuple<int, int, int>(9, 8, 1),
+            new Tuple<int, int, int>(11, 10, 1),
+            new Tuple<int, int, int>(12, 11, 1),
+            // Vertically connected ones.
+            new Tuple<int, int, int>(1, 4, 2),
+            new Tuple<int, int, int>(4, 7, 2),
+            new Tuple<int, int, int>(7,10, 2),
+            new Tuple<int, int, int>(2, 5, 2),
+            new Tuple<int, int, int>(5, 8, 2),
+            new Tuple<int, int, int>(8, 11, 2),
+            new Tuple<int, int, int>(3, 6, 2),
+            new Tuple<int, int, int>(6, 9, 2),
+            new Tuple<int, int, int>(9, 12, 2),
+            new Tuple<int, int, int>(4, 1, 3),
+            new Tuple<int, int, int>(7, 4, 3),
+            new Tuple<int, int, int>(10,7, 3),
+            new Tuple<int, int, int>(5, 2, 3),
+            new Tuple<int, int, int>(8, 5, 3),
+            new Tuple<int, int, int>(11, 8, 3),
+            new Tuple<int, int, int>(6, 3, 3),
+            new Tuple<int, int, int>(9, 6, 3),
+            new Tuple<int, int, int>(12, 9, 3),
+        };
 
         static public int EWB_THRU = 0;
         static public int NSB_LEFT = 1;
