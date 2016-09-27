@@ -22,6 +22,15 @@ namespace DynamicGreenWave
             }
         }
 
+        public void init_individual(int[] indiv)
+        {
+            if (genes.Length <= indiv.Length)
+            {
+                for (int i = 0; i < genes.Length; i++)
+                    genes[i] = indiv[i];
+            }
+        }
+
         public static void set_default_gene_length(int length)
         {
             default_gene_length = length;

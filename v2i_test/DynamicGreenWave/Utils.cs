@@ -315,13 +315,44 @@ namespace DynamicGreenWave
             }
         }
 
+        static public int find_single_best_plan_index(List<List<Tuple<int, int, int, double>>> pred_arr_t)
+        {
+            int ext_int_num = Globals.PRED_INT;
+            double min_deviation = double.MaxValue;
+            int min_index = -1;
+            List<List<int>> tmp_tm_int = new List<List<int>>();
+
+            for (int i = 0; i < Math.Pow(2, ext_int_num); i++)
+            {
+                double tmp_deviation = 0.0;
+                List<Tuple<int, int>> plan = get_tmp_plan(i, ext_int_num);
+
+                tmp_tm_int.Clear();
+                for (int t = 0; t < Globals.THRU_LINK_NUM; t++)
+                    tmp_tm_int.Add(new List<int>());
+
+                for (int j = 0; j < tmp_tm_int.Count; j++)
+                {
+                    if (j < 2)
+                        tmp_deviation += get_tmp_deviation(plan, pred_arr_t[j], Globals.HORI, tmp_tm_int[j]);
+                    else
+                        tmp_deviation += get_tmp_deviation(plan, pred_arr_t[j], Globals.VERT, tmp_tm_int[j]);
+
+                    if (tmp_deviation > min_deviation)
+                        break;
+                }
+                if (min_deviation > tmp_deviation)
+                {
+                    min_deviation = tmp_deviation;
+                    min_index = i;
+                }
+            }
+            return min_index;
+        }
+
         // The pred_arr_t tuple: 
         //     <start_arr_time, end_arr_time, platoon_size, platoon_start_speed>.
-        static public int[] make_signal_predictions2(
-            List<List<Tuple<int, int, int, double>>> pred_arr_t,
-            List<List<double>> tgt_platoon_speed)
-        {
-            /*
+        /*
              * 0. There is a prediction length limit, and also an interval.
              *    Like: an interval of 3 seconds, and a maximum prediction length of 30 seconds.
              *          Each interval can take one phase.
@@ -340,43 +371,14 @@ namespace DynamicGreenWave
              *              Goal: platoon arrival interval larger, difference get larger.
              *              Possible answer: Min(5-3, 9-6) + (9-5)-(6-3)
              * */
+        static public int[] make_signal_predictions2(
+            List<List<Tuple<int, int, int, double>>> pred_arr_t,
+            List<List<double>> tgt_platoon_speed=null)
+        {
+            int plan_index = find_single_best_plan_index(pred_arr_t);
 
-            int ext_int_num = Globals.PRED_INT;
-            double min_deviation = double.MaxValue;
-            int min_index = -1;
-            List<List<int>> tmp_tm_int = new List<List<int>>();
-
-            for (int i = 0; i < Math.Pow(2, ext_int_num); i++)
-            {
-                double tmp_deviation = 0.0;
-                List<Tuple<int, int>> plan = get_tmp_plan(i, ext_int_num);
-
-                tmp_tm_int.Clear();
-                for (int t = 0; t < 4; t++)
-                    tmp_tm_int.Add(new List<int>());
-
-                for (int j = 0; j < 4; j++)
-                {
-                    if (j < 2)
-                        tmp_deviation += get_tmp_deviation(plan, pred_arr_t[j], 0, tmp_tm_int[j]);
-                    else
-                        tmp_deviation += get_tmp_deviation(plan, pred_arr_t[j], 1, tmp_tm_int[j]);
-
-                    if (tmp_deviation > min_deviation)
-                        break;
-                }
-
-                if (min_deviation > tmp_deviation)
-                {
-                    min_deviation = tmp_deviation;
-                    min_index = i;
-
-                    // Record target platoon speed
-                    record_current_best_platoon_time_interval(tgt_platoon_speed, tmp_tm_int, pred_arr_t, plan);
-                }
-            }
             // Convert the min_index to decision array.
-            int[] res_plan = get_plan_bits(min_index, ext_int_num);
+            int[] res_plan = get_plan_bits(plan_index, Globals.PRED_INT);
 
             for (int i = 0; i < res_plan.Length; i++)
                 if (res_plan[i] == 1)

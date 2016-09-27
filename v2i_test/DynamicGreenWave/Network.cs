@@ -120,16 +120,30 @@ namespace DynamicGreenWave
                 inter.remove_undetected_vehicle_from_platoons();
         }
 
-        //public void test_predict_signal()
-        //{
-        //    foreach (var inter in this.inters)
-        //        inter.predict_signal_plan();
-        //}
+        public void test_predict_signal()
+        {
+            foreach (var inter in this.inters)
+                inter.predict_signal_plan();
+        }
+
+        private Individual get_locally_optimal_solution()
+        {
+            Individual init_indiv = new Individual();
+            for (int i = 0; i < this.inters.Length; i++)
+            {
+                int plan_index = this.inters[i].make_own_prediction();
+                init_indiv.set_gene(i, plan_index);
+            }
+            return init_indiv;
+        }
 
         public void predict_signal_plan_using_ga()
         {
             for (int i = 0; i < this.inters.Length; i++)
                 this.inters[i].clear_predicted_arr_time();
+
+            //Individual init_indiv = this.get_locally_optimal_solution();
+            //string res_str = GA.find_optimum(this.inters, init_indiv);
 
             string res_str = GA.find_optimum(this.inters);
             for (int i = 0; i < this.inters.Length; i++)

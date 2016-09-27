@@ -211,7 +211,7 @@ namespace DynamicGreenWave
         private double[] link_avg_speed_start = { Globals.LINK_AVG_SPEED, Globals.LINK_AVG_SPEED, 
                                                   Globals.LINK_AVG_SPEED, Globals.LINK_AVG_SPEED };
 
-        List<List<Tuple<int, int, int, double>>> predicted_arr_time = new List<List<Tuple<int,int,int,double>>>();
+        private List<List<Tuple<int, int, int, double>>> predicted_arr_time = new List<List<Tuple<int,int,int,double>>>();
 
         public int get_id()
         {
@@ -761,6 +761,14 @@ namespace DynamicGreenWave
             return this.link_avg_speed[direction];
         }
 
+        public int make_own_prediction()
+        {
+            if (this.predicted_arr_time == null || this.predicted_arr_time.Count == 0)
+                this.set_predict_platoon_arr_time();
+            int index = Utils.find_single_best_plan_index(this.predicted_arr_time);
+            return index;
+        }
+
         public void set_plan_using_ga_result(string plan_str)
         {
             if (this.decision == null)
@@ -772,23 +780,59 @@ namespace DynamicGreenWave
                     this.decision[i] = plan_str[i] - '0';
             }
             this.signal_plan_calculated = true;
+            this.modify_decision();
         }
 
-        private int[] append_left_phase()
+        // Well, not really a substr here.
+        private int get_longest_substr_last_index(int[] decision, int to_find)
         {
-            List<int> plan = new List<int>();
-            for (int i = 0; i < this.decision.Length; i++)
-                plan.Add(this.decision[i]);
-            if (this.trap_counter[2] > 0 || this.trap_counter[3] > 0)
-                plan.Add(Globals.NSB_LEFT);
-            if (this.trap_counter[6] > 0 || this.trap_counter[7] > 0)
-                plan.Add(Globals.EWB_LEFT);
+            if (decision.Length == 1 && decision[0] == to_find)
+                return 0;
 
-            int[] res_plan = new int[plan.Count];
-            for (int i = 0; i < plan.Count; i++)
-                res_plan[i] = plan[i];
-            return res_plan;
+            int index = -1;
+            int tmp_length = 0;
+            int max_length = 0;
+            if (decision.Length > 1)
+            {
+                for (int i = 0; i < decision.Length - 1; i++)
+                {
+                    if (decision[i] == to_find)
+                    {
+                        tmp_length++;
+                        if (decision[i + 1] != to_find )
+                        {
+                            if (tmp_length > max_length)
+                            {
+                                max_length = tmp_length;
+                                index = i;
+                            }
+                            tmp_length = 0;
+                        }
+                        else if (i == decision.Length - 2)
+                            index = i + 1;
+                    }
+                }
+            }
+
+            return index;
         }
+
+        private void modify_decision()
+        {
+            if (this.trap_counter[2] + this.trap_counter[3] > 0)
+            {
+                int left_index = this.get_longest_substr_last_index(this.decision, 0);
+                if (left_index != -1 && left_index < this.decision.Length)
+                    this.decision[left_index] = 1;
+            }
+            if (this.trap_counter[6] + this.trap_counter[7] > 0)
+            {
+                int left_index = this.get_longest_substr_last_index(this.decision, 2);
+                if (left_index != -1 && left_index < this.decision.Length)
+                    this.decision[left_index] = 3;
+            }
+        }
+              
 
         private void set_predict_platoon_arr_time()
         {
@@ -843,19 +887,18 @@ namespace DynamicGreenWave
             return this.predicted_arr_time[direction];
         }
 
-        /*
+        
         public void predict_signal_plan()
         {
-            List<List<Tuple<int, int, int, double>>> predicted_arr_time = this.predict_platoon_arr_time();
+            this.set_predict_platoon_arr_time();
             List<List<double>> tgt_platoon_speed = new List<List<double>>();
             for (int i = 0; i < 4; i++) tgt_platoon_speed.Add(new List<double>());
-            this.decision = Utils.make_signal_predictions2(predicted_arr_time, tgt_platoon_speed);
+            this.decision = Utils.make_signal_predictions2(this.predicted_arr_time, tgt_platoon_speed);
             this.set_platoon_advice_speed(tgt_platoon_speed);
-            this.decision = this.append_left_phase();
             //this.decision = Utils.add_clear_red(this.decision);
             this.signal_plan_calculated = true;
         }
-         * */
+        
 
         public bool lighten_signals(int cur_time)
         {

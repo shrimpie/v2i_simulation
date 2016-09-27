@@ -50,6 +50,9 @@ namespace DynamicGreenWave
         static public double MAX_SPEED = 20 * 3.6;
         static public double MIN_SPEED = 1 * 3.6;
 
+        static public int HORI = 0;
+        static public int VERT = 1;
+
         static public int NOT_INCLUDED = -1;
 
         static public int WARM_UP_TIME = 300;

@@ -11,18 +11,19 @@ namespace DynamicGreenWave
     class GA
     {
         private const double uniform_rate = 0.5;
-        private const double mutation_rate = 0.15;
+        private const double mutation_rate = 0.0015;
         private const int tournament_size = 5;
         private const bool elitism = true;
-        private const int population_size = 100;
+        private const int population_size = 1000;
         private const double optimum_condition = 0.01;
+        private const int min_generation_count = 50;
 
-        public static string find_optimum(Intersection[] inters)
+        public static string find_optimum(Intersection[] inters, Individual init_indiv=null)
         {
             Stopwatch stopWatch = new Stopwatch();
             stopWatch.Start();
 
-            Population my_popu = new Population(population_size, true);
+            Population my_popu = new Population(population_size, true, init_indiv);
             double current_fitness = my_popu.get_fittest(inters).get_fitness(inters);
             double previous_fitness = 0.0;
             double tmp_diff = 0.0;
@@ -33,6 +34,7 @@ namespace DynamicGreenWave
                 generation_count++;
                 current_fitness = my_popu.get_fittest(inters).get_fitness(inters);
                 tmp_diff = Math.Abs( ( previous_fitness - current_fitness) / current_fitness );
+            //} while (generation_count < min_generation_count);
             }while (tmp_diff > optimum_condition);
 
             stopWatch.Stop();
@@ -43,7 +45,7 @@ namespace DynamicGreenWave
                 ts.Hours, ts.Minutes, ts.Seconds,
                 ts.Milliseconds / 10);
             Console.WriteLine("RunTime " + elapsedTime);
-
+            Console.WriteLine("Fitness " + current_fitness);
             Console.WriteLine("Solution found!");
             Console.WriteLine("Generation: " + generation_count);
             Console.WriteLine("Genes: " + my_popu.get_fittest(inters).get_gene_string());

@@ -11,12 +11,18 @@ namespace DynamicGreenWave
         Individual[] individuals;
 
         // Create a population
-        public Population(int population_size, bool initialize)
+        public Population(int population_size, bool initialize, Individual indiv=null)
         {
             individuals = new Individual[population_size];
             if (initialize)
             {
-                for (int i = 0; i < individuals.Length; i++)
+                int offset = 0;
+                if (indiv != null)
+                {
+                    individuals[0] = indiv;
+                    offset = 1;
+                }
+                for (int i = offset; i < individuals.Length; i++)
                 {
                     Individual indi = new Individual();
                     indi.generate_individual();
